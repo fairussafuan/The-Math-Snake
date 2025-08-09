@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>THE MATH SNAKE</title>
+<style>
+:root{
+  --bg:#f6f7f8; --panel:rgba(255,255,255,0.9); --glass-border:rgba(0,0,0,0.06);
+  --accent:#6B9DFF; --muted:#8b95a1; --danger:#ff6b6b; --success:#4ade80;
+  --shadow:0 8px 30px rgba(12,15,20,0.06); --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#ffffff 0%, #eef2f6 100%);font-family:var(--ui);color:#0f1724}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:34px 16px}
+header{width:100%;max-width:1000px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{display:flex;flex-direction:column}
+.title{font-size:20px;font-weight:800;letter-spacing:0.6px;color:#071130}
+.subtitle{font-size:12px;color:var(--muted);margin-top:6px}
+.panel{background:var(--panel);backdrop-filter: blur(6px);border-radius:12px;padding:18px;box-shadow:var(--shadow);border:1px solid var(--glass-border);width:100%;max-width:900px}
+.topRow{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px}
+.hud{display:flex;gap:10px;align-items:center}
+.hudCard{background:transparent;padding:10px 14px;border-radius:10px;border:1px solid rgba(10,12,16,0.04);min-width:92px;text-align:center}
+.hudCard .label{font-size:11px;color:var(--muted);margin-bottom:6px}
+.hudCard .value{font-size:16px;font-weight:800}
+.center{display:flex;flex-direction:column;align-items:center;gap:12px}
+#board{background:#020617;border-radius:10px;border:6px solid #04040a;display:block;box-shadow:0 12px 40px rgba(3,6,12,0.18)}
+.infoCol{width:260px;min-width:220px}
+.infoBox{padding:12px;border-radius:10px;background:linear-gradient(180deg,#fff,#fcfdff);border:1px solid rgba(11,15,30,0.04);margin-bottom:12px}
+.controls{display:flex;gap:8px;align-items:center}
+button.ghost{background:transparent;border:1px solid rgba(11,15,30,0.06);padding:8px 12px;border-radius:9px;cursor:pointer;font-weight:700}
+.toggle{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:9px;cursor:pointer;font-weight:800}
+.qOverlay{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.qCard{min-width:320px;background:linear-gradient(180deg,#ffffff,#fbfdff);border-radius:12px;padding:16px 18px;box-shadow:0 18px 48px rgba(8,12,20,0.12);text-align:center;transform:translateY(8px);opacity:0;transition:all 260ms cubic-bezier(.2,.9,.2,1);pointer-events:auto;position:relative;z-index:10}
+.qCard.show{opacity:1;transform:translateY(0)}
+.qTitle{font-size:18px;font-weight:800;color:#071130;margin-bottom:6px}
+.qSub{font-size:13px;color:var(--muted);margin-bottom:8px}
+.countdownRing{width:88px;height:88px;border-radius:50%;display:inline-grid;place-items:center;background:linear-gradient(180deg,#fff,#f3f8ff);box-shadow:0 8px 22px rgba(8,12,20,0.06);margin-bottom:8px}
+.countdownNumber{font-size:20px;font-weight:800;color:#0b1220}
+.ansInput{margin-top:10px;display:flex;gap:8px;justify-content:center;align-items:center}
+.inputField{padding:10px 12px;border-radius:10px;border:1px solid rgba(10,12,16,0.06);width:140px;font-weight:700;text-align:center;font-size:16px}
+.smallNote{font-size:12px;color:var(--muted);margin-top:8px}
+.streak{font-size:13px;color:var(--accent);font-weight:700}
+.footerRow{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:12px}
+.badge{padding:6px 10px;border-radius:8px;background:#fff;border:1px solid rgba(0,0,0,0.04);font-weight:700}
+.tutorial{max-width:720px;text-align:left}
+.kv{display:flex;gap:8px;align-items:center;margin-top:8px}
+.kv div{font-size:13px;color:var(--muted)}
+@media (max-width:920px){ .panel{padding:14px} #board{width:360px;height:360px} .infoCol{display:none} }
+@media (max-width:420px){ header{padding:0 10px} .title{font-size:18px} #board{width:300px;height:300px} .qCard{min-width:260px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="title">THE MATH SNAKE</div>
+      <div class="subtitle">Play • Learn • Repeat — polished educational arcade</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:12px;color:var(--muted)">High Score</div>
+      <div style="font-weight:900;font-size:20px" id="high">0</div>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="topRow">
+      <div class="hud">
+        <div class="hudCard"><div class="label">Score</div><div class="value" id="score">0</div></div>
+        <div class="hudCard"><div class="label">Level</div><div class="value" id="level">1</div></div>
+        <div class="hudCard"><div class="label">Lives</div><div class="value" id="lives">3</div></div>
+      </div>
+      <div class="controls">
+        <button class="ghost" id="btnTutorial">Tutorial</button>
+        <button class="ghost" id="btnReset">Restart</button>
+        <button class="ghost" id="btnMute">Mute</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:18px;align-items:flex-start;position:relative">
+      <div class="center" style="flex:1; position:relative;">
+        <canvas id="board" width="440" height="440"></canvas>
+
+        <div class="qOverlay" id="qOverlay" aria-hidden="true">
+          <div class="qCard" id="qCard" role="dialog" aria-modal="true" aria-labelledby="qTitle">
+            <div class="qTitle" id="qTitle">Question</div>
+            <div class="qSub" id="qSub">Answer within <strong>10 seconds</strong></div>
+            <div style="display:flex;gap:14px;align-items:center;justify-content:center">
+              <div class="countdownRing" id="ring"><div class="countdownNumber" id="ringNum">10</div></div>
+            </div>
+            <div class="ansInput">
+              <input id="ansField" class="inputField" type="number" inputmode="numeric" autocomplete="off" aria-label="Answer input"/>
+              <button id="ansSubmit" class="toggle">Submit</button>
+            </div>
+            <div class="smallNote" id="qNote">Tip: speed and accuracy move you to the next round.</div>
+          </div>
+        </div>
+
+        <div style="height:8px"></div>
+        <div id="streakMsg" class="streak" aria-live="polite"></div>
+      </div>
+
+      <div class="infoCol">
+        <div class="infoBox">
+          <div style="font-weight:800;margin-bottom:6px">How it works</div>
+          <div style="font-size:13px;color:var(--muted)">
+            Eat the glowing dot. After eating, a math question appears. You have <strong>10 seconds</strong> to answer in the modal. Correct → next round (faster). Wrong or timeout → lose a life.
+          </div>
+        </div>
+
+        <div class="infoBox">
+          <div style="font-weight:800;margin-bottom:6px">Progression (professor-approved)</div>
+          <div style="font-size:13px;color:var(--muted)">
+            <div class="kv"><div style="width:8px;height:8px;background:var(--accent);border-radius:3px"></div><div>Level 1–3: Addition & subtraction</div></div>
+            <div class="kv"><div style="width:8px;height:8px;background:#ffb86b;border-radius:3px"></div><div>Level 4–6: Multiplication & division</div></div>
+            <div class="kv"><div style="width:8px;height:8px;background:#c77dff;border-radius:3px"></div><div>Level 7+: Mixed & multi-step</div></div>
+          </div>
+        </div>
+
+        <div class="infoBox">
+          <div style="font-weight:800;margin-bottom:6px">Session</div>
+          <div style="font-size:13px;color:var(--muted)">Streaks grant small score multipliers and encouragement messages. Tutorial mode available.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footerRow">
+      <div class="badge" id="msgArea">Ready — eat a dot to begin.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="font-size:13px;color:var(--muted)">Streak</div>
+        <div style="font-weight:800" id="streak">0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* THE MATH SNAKE - single file game
+   Features:
+   - Eat dot -> math question with 10s timer.
+   - Correct answer: next level, speed up.
+   - Wrong or timeout: lose life, 3 lives total.
+   - Tutorial accessible from UI.
+   - Apple-like design.
+   - Sounds via WebAudio.
+   - Persistent high score.
+*/
+
+// Elements
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const qOverlay = document.getElementById('qOverlay');
+const qCard = document.getElementById('qCard');
+const qTitle = document.getElementById('qTitle');
+const qSub = document.getElementById('qSub');
+const ringNum = document.getElementById('ringNum');
+const ansField = document.getElementById('ansField');
+const ansSubmit = document.getElementById('ansSubmit');
+const scoreEl = document.getElementById('score');
+const levelEl = document.getElementById('level');
+const livesEl = document.getElementById('lives');
+const streakEl = document.getElementById('streak');
+const msgArea = document.getElementById('msgArea');
+const streakMsg = document.getElementById('streakMsg');
+const highEl = document.getElementById('high');
+const btnTutorial = document.getElementById('btnTutorial');
+const btnReset = document.getElementById('btnReset');
+const btnMute = document.getElementById('btnMute');
+
+const GRID = 22;
+const CELL = 20;
+canvas.width = GRID * CELL;
+canvas.height = GRID * CELL;
+
+const SNAKE_HEAD = '#6B9DFF';
+const SNAKE_BODY = '#5a85f0';
+const DOT_COLOR = '#FFD166';
+
+let snake = [];
+let dir = {x:1,y:0}, pendingDir = null;
+let targetLength = 8;
+let dot = null;
+let inQuestion = false;
+let currentQuestion = null;
+let questionTimer = null, ringInterval = null;
+let questionDuration = 10000;
+let timeLeft = 10;
+let moveInterval = 240;
+let moveTimer = null;
+let score = 0, level = 1, lives = 3, streak = 0, foods = 0;
+const storageKey = 'the_math_snake_high_v1';
+let highScore = parseInt(localStorage.getItem(storageKey) || '0',10) || 0;
+highEl.textContent = highScore;
+let audioEnabled = true;
+let audioCtx = null;
+
+// Audio helpers
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function tone(freq,dur=0.08,type='sine',gain=0.06){
+  if(!audioEnabled) return;
+  try {
+    ensureAudio();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = gain;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    setTimeout(()=>{ try{o.stop()}catch(e){} }, dur*1000+20);
+  } catch(e){}
+}
+function sEat(){ tone(880,0.06,'square',0.05) }
+function sCorrect(){ tone(1200,0.14,'sine',0.08) }
+function sWrong(){ tone(240,0.28,'sawtooth',0.09) }
+function sLevel(){ tone(680,0.12,'sine',0.07); setTimeout(()=>tone(980,0.12,'sine',0.06),140); }
+function sGameOver(){ tone(160,0.35,'sine',0.12); tone(110,0.45,'sine',0.12); }
+
+btnMute.onclick = ()=>{
+  audioEnabled = !audioEnabled;
+  btnMute.textContent = audioEnabled ? 'Mute' : 'Unmute';
+  if(audioEnabled){
+    try{
+      if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+    }catch(e){}
+  }
+};
+
+// Helpers
+function randPos(){
+  return { x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID) };
+}
+function eq(a,b){
+  return a.x===b.x && a.y===b.y;
+}
+function placeDot(){
+  let p; let attempts=0;
+  do {
+    p = randPos();
+    attempts++;
+    if(attempts>400) break;
+  } while (snake.some(s=>eq(s,p)));
+  dot = p;
+}
+
+// Question generation
+function randRange(min,max){
+  return Math.floor(Math.random()*(max-min+1))+min;
+}
+function generateQuestionForLevel(lv){
+  const d = Math.max(1, lv);
+  if(d<=3){
+    const a = randRange(1,9); const b = randRange(1,9);
+    if(Math.random()<0.6) return {text:`${a} + ${b} = ?`, answer: a+b};
+    else return {text:`${a+b} - ${b} = ?`, answer: a};
+  } else if(d<=6){
+    const a = randRange(2,12); const b = randRange(2,8);
+    if(Math.random()<0.6) return {text:`${a} × ${b} = ?`, answer: a*b};
+    else return {text:`${a*b} ÷ ${b} = ?`, answer: a};
+  } else {
+    const a = randRange(10, 40); const b = randRange(2, 20);
+    if(Math.random()<0.5) return {text:`${a} + ${b} = ?`, answer: a+b};
+    if(Math.random()<0.8) return {text:`${a} - ${b} = ?`, answer: a-b};
+    return {text:`${a} × ${b} = ?`, answer: a*b};
+  }
+}
+
+// Show question modal
+function showQuestion(){
+  inQuestion = true;
+  currentQuestion = generateQuestionForLevel(level);
+  qTitle.textContent = currentQuestion.text;
+  qSub.textContent = 'Answer within 10 seconds';
+  ansField.value = '';
+  ansField.focus();
+  qOverlay.style.pointerEvents = 'auto';
+  qOverlay.setAttribute('aria-hidden', 'false');
+  qCard.classList.add('show');
+  timeLeft = Math.floor(questionDuration/1000);
+  ringNum.textContent = timeLeft;
+  if(ringInterval) clearInterval(ringInterval);
+  const start = Date.now();
+  ringInterval = setInterval(()=>{
+    const elapsed = Date.now() - start;
+    const s = Math.max(0, Math.ceil((questionDuration - elapsed)/1000));
+    ringNum.textContent = s;
+  },120);
+  if(questionTimer) clearTimeout(questionTimer);
+  questionTimer = setTimeout(()=>{
+    onAnswerTimeout();
+  }, questionDuration);
+}
+
+function hideQuestion(){
+  inQuestion = false;
+  qOverlay.setAttribute('aria-hidden', 'true');
+  qCard.classList.remove('show');
+  if(ringInterval) clearInterval(ringInterval);
+  if(questionTimer) clearTimeout(questionTimer);
+  ansField.value = '';
+}
+
+// On answer submit
+function checkAnswer(){
+  if(!inQuestion) return;
+  let val = ansField.value.trim();
+  if(val==='') return;
+  const numVal = Number(val);
+  if(isNaN(numVal)){
+    // Ignore non-number answers
+    return;
+  }
+  if(numVal === currentQuestion.answer){
+    sCorrect();
+    hideQuestion();
+    streak++;
+    streakEl.textContent = streak;
+    streakMsg.textContent = getStreakMessage(streak);
+    increaseScore(level * 10 + streak * 3);
+    foods = 0;
+    levelUp();
+    startGameLoop();
+  } else {
+    sWrong();
+    hideQuestion();
+    loseLife();
+  }
+}
+
+function onAnswerTimeout(){
+  sWrong();
+  hideQuestion();
+  loseLife();
+}
+
+function getStreakMessage(s){
+  if(s>=10) return "Math Genius! Keep it up! 🔥";
+  if(s>=7) return "Sharp mind! 🧠";
+  if(s>=4) return "Nice streak! 🎉";
+  if(s>=2) return "Good going! 👍";
+  return "";
+}
+
+function increaseScore(points){
+  score += points;
+  scoreEl.textContent = score;
+  if(score > highScore){
+    highScore = score;
+    highEl.textContent = highScore;
+    localStorage.setItem(storageKey, highScore);
+  }
+}
+
+function levelUp(){
+  level++;
+  levelEl.textContent = level;
+  moveInterval = Math.max(60, moveInterval - 12); // Speed up each level
+  sLevel();
+}
+
+function loseLife(){
+  lives--;
+  livesEl.textContent = lives;
+  streak = 0;
+  streakEl.textContent = streak;
+  streakMsg.textContent = "";
+  if(lives<=0){
+    gameOver();
+  } else {
+    msgArea.textContent = `Wrong answer or time's up! Lives left: ${lives}`;
+    startGameLoop();
+  }
+}
+
+function gameOver(){
+  sGameOver();
+  // Show custom modal popup with Restart button and icon
+  showGameOverModal();
+  stopGameLoop();
+}
+
+function showGameOverModal(){
+  // Create overlay div
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.top = 0;
+  overlay.style.left = 0;
+  overlay.style.right = 0;
+  overlay.style.bottom = 0;
+  overlay.style.background = 'rgba(0,0,0,0.6)';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.zIndex = '9999';
+
+  // Create modal container
+  const modal = document.createElement('div');
+  modal.style.background = 'white';
+  modal.style.borderRadius = '12px';
+  modal.style.padding = '24px 32px';
+  modal.style.textAlign = 'center';
+  modal.style.boxShadow = '0 8px 30px rgba(12,15,20,0.15)';
+  modal.style.minWidth = '280px';
+  modal.style.fontFamily = 'var(--ui), sans-serif';
+
+  // Message text
+  const msg = document.createElement('div');
+  msg.textContent = `Game Over!\nFinal score: ${score}`;
+  msg.style.fontWeight = '700';
+  msg.style.fontSize = '18px';
+  msg.style.marginBottom = '16px';
+  modal.appendChild(msg);
+
+  // Restart button with icon (↻)
+  const btn = document.createElement('button');
+  btn.innerHTML = '↻ Restart';
+  btn.style.background = 'var(--accent)';
+  btn.style.color = 'white';
+  btn.style.border = 'none';
+  btn.style.borderRadius = '8px';
+  btn.style.padding = '10px 24px';
+  btn.style.fontWeight = '800';
+  btn.style.fontSize = '16px';
+  btn.style.cursor = 'pointer';
+  btn.style.userSelect = 'none';
+  btn.style.transition = 'background-color 0.3s ease';
+  btn.onmouseenter = () => { btn.style.background = '#4f7dea'; };
+  btn.onmouseleave = () => { btn.style.background = 'var(--accent)'; };
+
+  btn.onclick = () => {
+    document.body.removeChild(overlay);
+    resetGameState();
+    startGameLoop();
+  };
+
+  modal.appendChild(btn);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
+
+// Reset game state to initial
+function resetGameState(){
+  snake = [];
+  dir = {x:1,y:0};
+  pendingDir = null;
+  targetLength = 8;
+  dot = null;
+  inQuestion = false;
+  currentQuestion = null;
+  if(questionTimer) clearTimeout(questionTimer);
+  if(ringInterval) clearInterval(ringInterval);
+  if(moveTimer) clearInterval(moveTimer);
+  moveInterval = 240;
+  score = 0; level = 1; lives = 3; streak = 0; foods = 0;
+  scoreEl.textContent = score;
+  levelEl.textContent = level;
+  livesEl.textContent = lives;
+  streakEl.textContent = streak;
+  streakMsg.textContent = "";
+  msgArea.textContent = "Ready — eat a dot to begin.";
+  highEl.textContent = highScore;
+  placeDot();
+  snake.push({x: Math.floor(GRID/2), y: Math.floor(GRID/2)});
+  drawBoard();
+}
+
+function startGameLoop(){
+  if(moveTimer) clearInterval(moveTimer);
+  moveTimer = setInterval(gameStep, moveInterval);
+}
+
+function stopGameLoop(){
+  if(moveTimer) clearInterval(moveTimer);
+  moveTimer = null;
+}
+
+function gameStep(){
+  if(inQuestion) return; // pause movement during question
+
+  // Change direction if pending
+  if(pendingDir){
+    if(!isOpposite(pendingDir, dir)){
+      dir = pendingDir;
+    }
+    pendingDir = null;
+  }
+
+  // New head pos
+  let newHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+  // Wrap edges
+  if(newHead.x < 0) newHead.x = GRID - 1;
+  if(newHead.x >= GRID) newHead.x = 0;
+  if(newHead.y < 0) newHead.y = GRID - 1;
+  if(newHead.y >= GRID) newHead.y = 0;
+
+  // Check self collision
+  if(snake.some(s=>eq(s,newHead))){
+    gameOver();
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  // Eat dot?
+  if(dot && eq(newHead, dot)){
+    sEat();
+    foods++;
+    targetLength++;
+    placeDot();
+    msgArea.textContent = "Math time! Answer to continue...";
+    stopGameLoop();
+    showQuestion();
+  }
+
+  // Trim tail
+  while(snake.length > targetLength){
+    snake.pop();
+  }
+
+  drawBoard();
+}
+
+// Draw snake and dot
+function drawBoard(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Background grid
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Draw dot glow circle
+  if(dot){
+    const x = dot.x * CELL + CELL/2;
+    const y = dot.y * CELL + CELL/2;
+    let glow = ctx.createRadialGradient(x,y,6,x,y,14);
+    glow.addColorStop(0, 'rgba(255,209,102,0.7)');
+    glow.addColorStop(1, 'rgba(255,209,102,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x,y,14,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = DOT_COLOR;
+    ctx.beginPath();
+    ctx.arc(x,y,7,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Draw snake
+  for(let i=0; i<snake.length; i++){
+    let s = snake[i];
+    let x = s.x * CELL;
+    let y = s.y * CELL;
+    ctx.fillStyle = (i===0) ? SNAKE_HEAD : SNAKE_BODY;
+    roundRect(ctx, x+1, y+1, CELL-2, CELL-2, 6);
+  }
+}
+
+function roundRect(ctx, x, y, width, height, radius){
+  ctx.beginPath();
+  ctx.moveTo(x+radius,y);
+  ctx.lineTo(x+width-radius,y);
+  ctx.quadraticCurveTo(x+width,y,x+width,y+radius);
+  ctx.lineTo(x+width,y+height-radius);
+  ctx.quadraticCurveTo(x+width,y+height,x+width-radius,y+height);
+  ctx.lineTo(x+radius,y+height);
+  ctx.quadraticCurveTo(x,y+height,x,y+height-radius);
+  ctx.lineTo(x,y+radius);
+  ctx.quadraticCurveTo(x,y,x+radius,y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Direction logic
+function isOpposite(a,b){
+  return a.x === -b.x && a.y === -b.y;
+}
+window.addEventListener('keydown', e=>{
+  if(inQuestion) return;
+  switch(e.key){
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      if(dir.y!==1) pendingDir = {x:0,y:-1};
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      if(dir.y!==-1) pendingDir = {x:0,y:1};
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      if(dir.x!==1) pendingDir = {x:-1,y:0};
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      if(dir.x!==-1) pendingDir = {x:1,y:0};
+      break;
+  }
+});
+
+// Answer submit handlers
+ansSubmit.onclick = checkAnswer;
+ansField.addEventListener('keydown', e=>{
+  if(e.key==='Enter') checkAnswer();
+});
+
+// Tutorial popup
+btnTutorial.onclick = () => {
+  alert(`THE MATH SNAKE - Tutorial
+
+- Use arrow keys or WASD to move the snake.
+- Eat the glowing dot to trigger a math question.
+- Answer the math question correctly within 10 seconds to level up.
+- Each correct answer speeds up the game.
+- Wrong answer or timeout costs you one life.
+- You have 3 lives; game over when lives reach zero.
+- Try to get the highest score possible!
+
+Good luck and have fun!`);
+};
+
+// Restart game
+btnReset.onclick = () => {
+  if(confirm('Restart the game? Your current progress will be lost.')){
+    resetGameState();
+    startGameLoop();
+  }
+};
+
+resetGameState();
+
+// Auto start game loop on load
+startGameLoop();
+</script>
+<footer style="text-align:center; padding:12px 0; font-size:13px; color: var(--muted); font-family: var(--ui);">
+  &copy; 2025 Fairus Safuan
+</footer>
+</body>
+</html>
